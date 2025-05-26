@@ -1,0 +1,15 @@
+streamlit
+pandas
+python-dotenv
+PyPDF2
+sentence-transformers
+torch
+requests
+openai
+langchain
+langchain-openai
+deep-translator
+matplotlib
+pyyaml
+pdfplumber
+pdfminer.six
