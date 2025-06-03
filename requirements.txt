@@ -13,3 +13,4 @@ matplotlib
 pyyaml
 pdfplumber
 pdfminer.six
+google-search-results
