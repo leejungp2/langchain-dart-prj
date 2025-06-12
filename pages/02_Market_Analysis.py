@@ -127,12 +127,5 @@ if search_clicked:
         summary = get_market_summary(industry_name, web_results)
     st.markdown(summary)
     st.divider()
-    # 2. 경쟁사 정보
-    st.subheader("경쟁사 정보 및 비교")
-    st.markdown("- [자리 표시] 경쟁사 2개 추천 및 간단 비교/시각화 예정")
-    st.divider()
-    # 3. 뉴스/트렌드
-    st.subheader("최신 뉴스/트렌드/키워드")
-    st.markdown("- [자리 표시] 기사 크롤링/키워드/뉴스 링크 예정")
 else:
     st.info("산업을 선택하거나 기업명을 입력 후 '검색'을 눌러주세요.") 

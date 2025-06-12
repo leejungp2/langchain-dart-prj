@@ -109,7 +109,7 @@ class DartAPI:
         res = requests.get(url, params=params)
         return res.json()
 
-    def get_financial_statements(self, corp_code, bsns_year, reprt_code="11011", fs_div="CFS"):
+    def get_financial_statements(self, corp_code, bsns_year, reprt_code="11011", fs_div="FSS"):
         """재무제표(단일회사 주요재무) 조회"""
         url = f"{self.BASE_URL}/fnlttSinglAcntAll.json"
         params = {
@@ -133,6 +133,24 @@ class DartAPI:
         }
         res = requests.get(url, params=params)
         return res.json()
+
+    def get_semiannual_reports_list(self, corp_code, year, half='상반기'):
+        """
+        특정 연도/반기의 반기보고서만 반환
+        half: '상반기' 또는 '하반기'
+        """
+        if half == '상반기':
+            bgn_de, end_de = f"{year}0101", f"{year}0630"
+        else:
+            bgn_de, end_de = f"{year}0701", f"{year}1231"
+        data = self.get_notice_list(corp_code, bgn_de, end_de)
+        if not data.get('list'):
+            return []
+        # '반기보고서'가 report_nm에 포함된 공시만 필터링
+        semiannual_reports = [item for item in data['list'] if '반기보고서' in item.get('report_nm', '')]
+        # 최신순 정렬
+        semiannual_reports.sort(key=lambda x: x.get('rcept_dt', ''), reverse=True)
+        return semiannual_reports
 
     # corp_code(고유코드) 매핑은 별도 유틸 함수로 구현 필요 (공식문서 참고) 
 

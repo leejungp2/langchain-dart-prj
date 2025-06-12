@@ -141,6 +141,35 @@ def plot_financials_tool(input: str) -> str:
     plt.close(fig)
     return img_path
 
+@tool
+def get_semiannual_reports_tool(input: str) -> str:
+    """
+    기업명, 연도, 반기(상/하반기)가 포함된 자연어 문장을 입력하면 DART API에서 반기보고서 리스트를 반환합니다.
+    입력 예시: input='삼성전자 2023 상반기'
+    출력 예시: '2023-06-30 삼성전자 반기보고서: https://dart.fss.or.kr/dsaf001/main.do?rcpNo=xxxxxx'
+    """
+    query = input
+    # 연도, 반기 추출
+    year_match = re.search(r'(\d{4})', query)
+    year = year_match.group(1) if year_match else "2023"
+    half = '상반기' if '상반기' in query else ('하반기' if '하반기' in query else '상반기')
+    corp_name = query.split(str(year))[0].strip() if year else query
+    dart = DartAPI()
+    corp_code = dart.find_corp_code(corp_name)
+    if corp_code and isinstance(corp_code, str) and corp_code.isdigit() and len(corp_code) == 8:
+        reports = dart.get_semiannual_reports_list(corp_code, year, half)
+        if not reports:
+            return f"{year}년 {half} 반기보고서가 없습니다."
+        result = []
+        for r in reports:
+            dt = r.get('rcept_dt', '')
+            nm = r.get('report_nm', '')
+            url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={r.get('rcept_no', '')}"
+            result.append(f"{dt} {nm}: {url}")
+        return '\n'.join(result)
+    else:
+        return corp_code if isinstance(corp_code, str) else "기업명을 찾을 수 없습니다. (최종 답변)"
+
 def load_general_prompt():
     """prompts/general.yaml에서 프롬프트 템플릿을 불러옴"""
     prompt_path = os.path.join(os.path.dirname(__file__), "../prompts/general.yaml")

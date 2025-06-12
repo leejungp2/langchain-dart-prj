@@ -17,36 +17,3 @@ def render_search_box():
     user_input = st.text_input("AI에게 질문하세요!", key="ai_query_input")
     if user_input:
         st.session_state['ai_query'] = user_input
-
-def render_financial_table(fs, company, year, sj_div='BS'):
-    """특정 재무제표만 예쁘게 표로 출력"""
-    st.subheader(f"{company} {year}년 재무제표")
-    df = pretty_financial_table(fs, sj_div=sj_div)
-    st.dataframe(df)
-
-def pretty_financial_table(fs_data, sj_div='BS'):
-    """
-    fs_data: DART API에서 받아온 재무제표 dict (list of dict)
-    sj_div: 'BS'(재무상태표), 'IS'(손익계산서), 'CIS'(포괄손익계산서), 'CF'(현금흐름표)
-    """
-    if not fs_data or 'list' not in fs_data or not fs_data['list']:
-        return pd.DataFrame([{'계정명': '데이터 없음'}])
-    df = pd.DataFrame(fs_data['list'])
-    df = df[df['sj_div'] == sj_div]
-    if df.empty:
-        return pd.DataFrame([{'계정명': '데이터 없음'}])
-    cols = ['account_nm', 'thstrm_amount', 'frmtrm_amount', 'bfefrmtrm_amount']
-    cols = [c for c in cols if c in df.columns]
-    df = df[cols]
-    rename_map = {
-        'account_nm': '계정명',
-        'thstrm_amount': '당기',
-        'frmtrm_amount': '전기',
-        'bfefrmtrm_amount': '전전기'
-    }
-    df = df.rename(columns=rename_map)
-    for col in ['당기', '전기', '전전기']:
-        if col in df.columns:
-            df[col] = df[col].apply(lambda x: f'{int(str(x).replace(",", "")):,}' if pd.notnull(x) and str(x).replace(',','').isdigit() else x)
-    df = df.reset_index(drop=True)
-    return df 
