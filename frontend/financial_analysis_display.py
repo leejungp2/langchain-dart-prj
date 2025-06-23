@@ -21,34 +21,31 @@ plt.rcParams['axes.unicode_minus'] = False # 마이너스 폰트 깨짐 방지
 def format_amount_to_kr_unit(value):
     if pd.isna(value) or not isinstance(value, (int, float)):
         return 'N/A'
-
-    original_value = value
-    abs_value = int(abs(value)) # Get absolute integer value
-
-    sign = '-' if original_value < 0 else ''
-
-    # Apply "만단위 이후로는 버림" by calculating value in '만' units, then discard remainder
-    value_in_man_units = abs_value // 10000
-
-    # If the value is 0 or less than 1만 (after discarding smaller units), return '0'
-    if value_in_man_units == 0:
-        return '0'
-
-    eok = value_in_man_units // 10000 # Convert '만' units to '억' units
-    man = value_in_man_units % 10000 # Remaining '만' units
-
-    result_parts = []
-
-    if eok > 0:
-        result_parts.append(f'{eok:,}억')
-
-    if man > 0:
-        if eok > 0: # If '억' part exists, '만' part should be 4 digits with leading zeros
-            result_parts.append(f'{man:04d}만')
-        else: # If only '만' part, always format as 4 digits with leading zeros
-            result_parts.append(f'{man:04d}만')
-    
-    return sign + ' '.join(result_parts).strip()
+    value = int(value)
+    sign = '-' if value < 0 else ''
+    value = abs(value)
+    if value >= 1_000_000_000_000:  # 1조 이상
+        jo = value // 1_000_000_000_000
+        eok = (value % 1_000_000_000_000) // 100_000_000
+        man = (value % 100_000_000) // 10_000
+        result = f"{sign}{jo}조"
+        if eok > 0:
+            result += f" {eok}억"
+        if man > 0:
+            result += f" {man}만"
+        return result.strip()
+    elif value >= 100_000_000:  # 1억 이상
+        eok = value // 100_000_000
+        man = (value % 100_000_000) // 10_000
+        result = f"{sign}{eok}억"
+        if man > 0:
+            result += f" {man}만"
+        return result.strip()
+    elif value >= 10_000:  # 1만 이상
+        man = value // 10_000
+        return f"{sign}{man}만"
+    else:
+        return f"{sign}{value}"
 
 def get_sj_div_label(sj_div_code):
     """sj_div 코드에 해당하는 한글 라벨을 반환합니다."""
@@ -529,4 +526,20 @@ def pretty_financial_table(fs_data, sj_div='BS'):
         
         df = pd.DataFrame(final_rows, columns=df.columns)
 
-    return df 
+    return df
+
+def financial_df_to_context_text(df, company=None, year=None, sj_div=None):
+    lines = []
+    if company and year and sj_div:
+        lines.append(f"{company} {year}년 {get_sj_div_label(sj_div)} 요약")
+    for _, row in df.iterrows():
+        항목 = row.get('계정명', '')
+        당기 = row.get('당기', '')
+        전기 = row.get('전기', '')
+        전전기 = row.get('전전기', '')
+        비고 = row.get('비고', '')
+        if 비고:
+            lines.append(f"{항목}: {전전기}(3년전), {전기}(2년전), {당기}(작년) | {비고}")
+        else:
+            lines.append(f"{항목}: {전전기}(3년전), {전기}(2년전), {당기}(작년)")
+    return "\n".join(lines)

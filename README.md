@@ -51,7 +51,7 @@ pip install -r requirements.txt
 
 ---
 
-### 2️⃣ OpenAI API 키 발급 (선택)
+### 2️⃣ OpenAI API 키 발급
 
 1. [OpenAI 플랫폼](https://platform.openai.com/account/api-keys) 접속  
 2. 로그인 후 **Create new secret key** 클릭  
@@ -62,6 +62,12 @@ pip install -r requirements.txt
 DART_API_KEY=your_dart_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 ```
+
+---
+
+### 3. Serp API 키 발급
+
+---
 
 ## 🚀 실행 방법
 

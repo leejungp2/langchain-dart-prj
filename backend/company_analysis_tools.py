@@ -175,4 +175,15 @@ def load_general_prompt():
     prompt_path = os.path.join(os.path.dirname(__file__), "../prompts/general.yaml")
     with open(prompt_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    return data["template"] 
+    return data["template"]
+
+def answer_from_page_context(question, page_context):
+    """
+    질문에 대해 페이지 내 결과값(문자열 등)에서 답변을 우선적으로 추출.
+    간단히는 context 내에서 유사 문장 반환, 없으면 None 반환.
+    """
+    # 완전일치 우선, 추후 유사도 검색으로 개선 가능
+    for line in page_context.split('\n'):
+        if question.strip() in line:
+            return line
+    return None

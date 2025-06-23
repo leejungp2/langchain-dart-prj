@@ -11,6 +11,7 @@ from langchain.agents import initialize_agent
 from dart_api import DartAPI
 import re
 from deep_translator import GoogleTranslator
+import openai
 
 # --- 분리된 프론트엔드/백엔드 함수 import ---
 from frontend.company_analysis_ui import render_info_message, render_search_box
@@ -21,11 +22,14 @@ from backend.company_analysis_tools import (
     analyze_csv_tool,
     summarize_pdf_tool,
     plot_financials_tool,
-    parse_financial_query
+    answer_from_page_context
 )
 
 # .env에서 API 키 불러오기
 load_dotenv()
+
+# OpenAI API 키 설정
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # DART API 키 안내 메시지
 if not os.getenv("DART_API_KEY"):
@@ -64,6 +68,17 @@ agent = initialize_agent(
 # Streamlit UI
 st.title("AI 기업 분석 (하이브리드)")
 
+# 번역 함수 정의
+def translate_to_ko(text):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "Translate the following text to Korean."},
+            {"role": "user", "content": text}
+        ]
+    )
+    return response['choices'][0]['message']['content'].strip()
+
 # 1. 자연어 챗봇
 st.header("AI 챗봇")
 render_info_message()
@@ -90,6 +105,8 @@ if uploaded_file:
         st.write("컬럼 정보:", list(df.columns))
         st.write("기초 통계:")
         st.write(df.describe())
+
+
 
 if st.session_state.get('ai_query', ''):
     import traceback
@@ -150,10 +167,26 @@ if st.session_state.get('ai_query', ''):
 st.divider()
 
 # 2. UI 기반 주요 기능
-# 이 섹션의 모든 재무제표 관련 UI 요소는 pages/02_Financial_Analysis.py로 이동되었습니다.
 
-def translate_to_ko(text):
-    try:
-        return GoogleTranslator(source='auto', target='ko').translate(text)
-    except Exception as e:
-        return f"[번역 실패] {text}" 
+
+# 분석 결과 생성 후
+company_analysis_result = "여기에 회사 분석 결과가 들어갑니다."
+st.session_state["company_analysis_result"] = company_analysis_result
+
+# --- 사이드바: Q&A 챗봇 ---
+st.sidebar.header("Q&A 챗봇")
+st.sidebar.info("회사 분석 결과에 대해 궁금한 점을 질문해 보세요!")
+chat_input = st.sidebar.text_input("질문을 입력하세요", key="company_chat_input")
+if st.sidebar.button("질문하기", key="company_qa_btn"):
+    page_context = st.session_state.get("company_analysis_result", "")
+    answer = answer_from_page_context(chat_input, page_context)
+    if answer:
+        st.sidebar.success(f"페이지 내 답변: {answer}")
+    else:
+        llm = ChatOpenAI(model="gpt-4o", temperature=0)
+        prompt = f"다음 회사 분석 결과를 참고해서 질문에 답변해줘.\n\n분석 결과: {page_context}\n\n질문: {chat_input}"
+        try:
+            result = llm.invoke(prompt)
+            st.sidebar.success(f"외부 답변: {result.content.strip()}")
+        except Exception as e:
+            st.sidebar.error(f"답변 실패: {e}")

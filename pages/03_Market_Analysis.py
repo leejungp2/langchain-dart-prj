@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from serpapi import GoogleSearch
+from backend.company_analysis_tools import answer_from_page_context  # 추가
 
 # 환경변수 로드 및 LLM 세팅
 load_dotenv()
@@ -16,8 +17,22 @@ st.title("시장/산업 분석 (Market Analysis)")
 st.sidebar.header("Q&A 챗봇")
 st.sidebar.info("산업/시장 정보에 대해 궁금한 점을 질문해 보세요!")
 chat_input = st.sidebar.text_input("질문을 입력하세요", key="market_chat_input")
-if st.sidebar.button("질문하기"):
-    st.sidebar.write(f"[챗봇 답변 자리] 질문: {chat_input}")
+if st.sidebar.button("질문하기", key="market_qa_btn"):
+    # 1. 페이지 내 결과값에서 답변 시도
+    # summary는 아래에서 생성됨. 없으면 빈 문자열.
+    page_context = st.session_state.get("market_summary", "")
+    answer = answer_from_page_context(chat_input, page_context)
+    if answer:
+        st.sidebar.success(f"페이지 내 답변: {answer}")
+    else:
+        # 2. 외부 API 호출 (OpenAI)
+        llm = ChatOpenAI(model="gpt-4o", temperature=0)
+        prompt = f"다음 시장/산업 분석 결과를 참고해서 질문에 답변해줘.\n\n분석 결과: {page_context}\n\n질문: {chat_input}"
+        try:
+            result = llm.invoke(prompt)
+            st.sidebar.success(f"외부 답변: {result.content.strip()}")
+        except Exception as e:
+            st.sidebar.error(f"답변 실패: {e}")
 
 # --- 웹 검색 함수 ---
 def web_search(query, num_results=5):
@@ -125,7 +140,8 @@ if search_clicked:
     # 3. LLM 요약
     with st.spinner("시장 기본 정보 요약 중..."):
         summary = get_market_summary(industry_name, web_results)
+    st.session_state["market_summary"] = summary  # Q&A 챗봇에서 사용
     st.markdown(summary)
     st.divider()
 else:
-    st.info("산업을 선택하거나 기업명을 입력 후 '검색'을 눌러주세요.") 
+    st.info("산업을 선택하거나 기업명을 입력 후 '검색'을 눌러주세요.")
