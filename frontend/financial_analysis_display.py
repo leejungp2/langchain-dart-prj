@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import platform
+import matplotlib.ticker as ticker
 
 # 한글 폰트 설정
 if platform.system() == 'Darwin': # Mac OS
@@ -84,12 +85,18 @@ def generate_income_statement_chart(fs_data, company, year):
     영업이익_data = get_amounts_for_account(df_is, '영업이익')
     당기순이익_data = get_amounts_for_account(df_is, '당기순이익')
 
+    def to_eok(val):
+        try:
+            return float(val) / 100_000_000 if val is not None else None
+        except Exception:
+            return None
+
     # Prepare data for grouped bar chart
     chart_data = {
         '항목': ['매출액', '영업이익', '순이익'],
-        '당기': [매출액_data['thstrm_amount'], 영업이익_data['thstrm_amount'], 당기순이익_data['thstrm_amount']],
-        '전기': [매출액_data['frmtrm_amount'], 영업이익_data['frmtrm_amount'], 당기순이익_data['frmtrm_amount']],
-        '전전기': [매출액_data['bfefrmtrm_amount'], 영업이익_data['bfefrmtrm_amount'], 당기순이익_data['bfefrmtrm_amount']]
+        '당기': [to_eok(매출액_data['thstrm_amount']), to_eok(영업이익_data['thstrm_amount']), to_eok(당기순이익_data['thstrm_amount'])],
+        '전기': [to_eok(매출액_data['frmtrm_amount']), to_eok(영업이익_data['frmtrm_amount']), to_eok(당기순이익_data['frmtrm_amount'])],
+        '전전기': [to_eok(매출액_data['bfefrmtrm_amount']), to_eok(영업이익_data['bfefrmtrm_amount']), to_eok(당기순이익_data['bfefrmtrm_amount'])]
     }
     chart_df = pd.DataFrame(chart_data)
 
@@ -100,7 +107,7 @@ def generate_income_statement_chart(fs_data, company, year):
         st.warning("시각화할 손익계산서 데이터가 부족합니다.")
         return
 
-    # Plotting grouped bar chart
+    # 변환 없이 원본 chart_df 사용
     fig, ax = plt.subplots(figsize=(10, 6))
     bar_width = 0.25
     index = range(len(chart_df['항목']))
@@ -115,6 +122,7 @@ def generate_income_statement_chart(fs_data, company, year):
     ax.set_xticks(index)
     ax.set_xticklabels(chart_df['항목'], rotation=0)
     ax.legend()
+    ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))  # 억 단위 숫자
     plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
@@ -344,7 +352,7 @@ def generate_cash_flow_chart(fs_data, company, year):
         st.warning("시각화할 현금흐름표 데이터가 부족합니다.")
         return
 
-    # Plotting grouped bar chart
+    # 변환 없이 원본 chart_df 사용
     fig, ax = plt.subplots(figsize=(10, 6))
     bar_width = 0.25
     index = range(len(chart_df['항목']))
@@ -359,6 +367,7 @@ def generate_cash_flow_chart(fs_data, company, year):
     ax.set_xticks(index)
     ax.set_xticklabels(chart_df['항목'], rotation=0)
     ax.legend()
+    ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))  # 억 단위 숫자
     plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
@@ -407,7 +416,7 @@ def generate_balance_sheet_chart(fs_data, company, year):
         st.warning("시각화할 재무상태표 데이터가 부족합니다.")
         return
 
-    # Plotting grouped bar chart
+    # 변환 없이 원본 chart_df 사용
     fig, ax = plt.subplots(figsize=(10, 6))
     bar_width = 0.25
     index = range(len(chart_df['항목']))
@@ -422,6 +431,7 @@ def generate_balance_sheet_chart(fs_data, company, year):
     ax.set_xticks(index)
     ax.set_xticklabels(chart_df['항목'], rotation=0)
     ax.legend()
+    ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))  # 억 단위 숫자
     plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)

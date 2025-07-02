@@ -37,7 +37,7 @@ def get_company_info_tool(input: str) -> str:
     dart = DartAPI()
     corp_code = dart.find_corp_code(company_name)
     # corp_code가 6자리 숫자(str)일 때만 DART API 호출
-    if corp_code and isinstance(corp_code, str) and corp_code.isdigit() and len(corp_code) == 8:
+    if corp_code and isinstance(corp_code, str) and corp_code.isdigit() and 6 <= len(corp_code) <= 8:
         info = dart.get_company_info(corp_code)
         if info.get('status') == '000':
             keys = ["corp_name", "stock_code", "ceo_nm", "corp_cls", "adres"]
@@ -63,7 +63,7 @@ def get_financial_statements_tool(input: str) -> str:
     parsed = parse_financial_query(query)
     dart = DartAPI()
     corp_code = dart.find_corp_code(parsed['corp_name'])
-    if corp_code and isinstance(corp_code, str) and corp_code.isdigit() and len(corp_code) == 8:
+    if corp_code and isinstance(corp_code, str) and corp_code.isdigit() and 6 <= len(corp_code) <= 8:
         data = dart.get_financial_statements(corp_code, bsns_year=parsed['year'])
         if not data.get('list'):
             return "재무 데이터가 없습니다. (최종 답변)"

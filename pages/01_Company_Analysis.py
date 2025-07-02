@@ -12,6 +12,7 @@ from dart_api import DartAPI
 import re
 from deep_translator import GoogleTranslator
 import openai
+import datetime
 
 # --- 분리된 프론트엔드/백엔드 함수 import ---
 from frontend.company_analysis_ui import render_info_message, render_search_box
@@ -66,12 +67,12 @@ agent = initialize_agent(
 )
 
 # Streamlit UI
-st.title("AI 기업 분석 (하이브리드)")
+st.title("AI 기업 분석")
 
 # 번역 함수 정의
 def translate_to_ko(text):
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": "Translate the following text to Korean."},
             {"role": "user", "content": text}
@@ -79,14 +80,44 @@ def translate_to_ko(text):
     )
     return response['choices'][0]['message']['content'].strip()
 
+def log_page1_nl_search(user_input, output):
+    log_path = "logs/page1_nl_search.log"
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\nINPUT: {user_input}\nOUTPUT: {output}\n---\n")
+
+def log_page1_qa(user_input, output):
+    log_path = "logs/page1_qa.log"
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\nINPUT: {user_input}\nOUTPUT: {output}\n---\n")
+
 # 1. 자연어 챗봇
-st.header("AI 챗봇")
+st.header("자연어 검색")
 render_info_message()
 # 검색창 + 버튼 UI
 user_input = st.text_input("AI에게 질문하세요!", key="ai_query_input")
 search_clicked = st.button("검색")
 if search_clicked and user_input:
-    st.session_state['ai_query'] = user_input
+    dart_api = DartAPI()
+    try:
+        corp_code_or_candidates = dart_api.find_corp_code(user_input)
+        log_page1_nl_search(user_input, str(corp_code_or_candidates))
+    except Exception as e:
+        st.error(f"[ERROR] find_corp_code 예외 발생: {e}")
+        import traceback
+        st.text(traceback.format_exc())
+        log_page1_nl_search(user_input, f"[ERROR] {e}")
+        corp_code_or_candidates = None
+    if 'corp_code_or_candidates' in locals() and isinstance(corp_code_or_candidates, list) and corp_code_or_candidates:
+        st.warning("기업명을 찾을 수 없습니다. 한글/영문으로 바꿔서 입력을 다시 시도해 보세요.")
+        log_page1_nl_search(user_input, "기업명을 찾을 수 없습니다. 한글/영문으로 바꿔서 입력을 다시 시도해 보세요.")
+    elif 'corp_code_or_candidates' in locals() and isinstance(corp_code_or_candidates, str):
+        st.session_state['ai_query'] = user_input
+        # 이미 위에서 로그 기록함
+    elif 'corp_code_or_candidates' in locals():
+        st.warning("기업명을 찾을 수 없습니다. 한글/영문으로 바꿔서 입력을 다시 시도해 보세요.")
+        log_page1_nl_search(user_input, "기업명을 찾을 수 없습니다. 한글/영문으로 바꿔서 입력을 다시 시도해 보세요.")
 
 # PDF/CSV 업로드 UI를 챗봇 바로 아래로 이동
 uploaded_file = st.file_uploader("자료 업로드 (PDF, CSV)", type=["pdf", "csv"])
@@ -124,27 +155,21 @@ if st.session_state.get('ai_query', ''):
         if steps:
             last_thought = steps[-1][0].log if hasattr(steps[-1][0], 'log') else None
             last_obs = steps[-1][1]
+        # 항상 결과를 UI에 출력
         if isinstance(answer, str) and answer.endswith(".png") and os.path.exists(answer):
             st.image(answer)
-        elif not answer or (
-            re.match(r"[A-Za-z]", answer.strip())
-            or "unable" in answer.lower()
-            or "not available" in answer.lower()
-            or "cannot" in answer.lower()
-            or "없습니다" in answer
-        ):
-            if last_obs:
-                st.write(f"Observation(툴 반환값): {last_obs}")
-            if last_thought:
-                if re.match(r"[A-Za-z]", last_thought.strip()):
-                    last_thought_kr = translate_to_ko(last_thought)
-                else:
-                    last_thought_kr = last_thought
-                st.info(f"AI의 참고 설명:\n{last_thought_kr}\n\n한글/영문으로 바꿔서 입력을 다시 시도해 보세요.")
-            elif not last_obs:
-                st.warning("결과가 없습니다. 입력값을 다시 확인해 주세요.")
-        else:
+        elif answer:
             st.write(answer)
+        elif last_obs:
+            st.write(f"Observation(툴 반환값): {last_obs}")
+        elif last_thought:
+            if re.match(r"[A-Za-z]", last_thought.strip()):
+                last_thought_kr = translate_to_ko(last_thought)
+            else:
+                last_thought_kr = last_thought
+            st.info(f"AI의 참고 설명:\n{last_thought_kr}\n\n한글/영문으로 바꿔서 입력을 다시 시도해 보세요.")
+        else:
+            st.warning("결과가 없습니다. 입력값을 다시 확인해 주세요.")
     except OutputParserException:
         if 'last_obs' in locals() and last_obs:
             st.write(last_obs)

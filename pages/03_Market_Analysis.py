@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from serpapi import GoogleSearch
 from backend.company_analysis_tools import answer_from_page_context  # 추가
+import datetime
+from frontend.market_analysis_display import render_market_summary, render_web_results
 
 # 환경변수 로드 및 LLM 세팅
 load_dotenv()
@@ -11,7 +13,7 @@ llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 st.set_page_config(page_title="시장/산업 분석", layout="wide")
 
-st.title("시장/산업 분석 (Market Analysis)")
+st.title("시장 분석")
 
 # --- 사이드바: Q&A 챗봇 ---
 st.sidebar.header("Q&A 챗봇")
@@ -59,7 +61,7 @@ def web_search(query, num_results=5):
     ]
 
 # --- 메인: 산업/기업명 입력 ---
-st.header("1. 산업/시장 선택 또는 기업명 검색")
+st.header("카테고리 선택 또는 기업명 검색")
 industry_list = [
     "반도체", "2차전지", "자동차", "게임", "바이오", "IT", "금융", "유통", "조선", "항공", "기타"
 ]
@@ -113,11 +115,11 @@ def get_market_summary(industry_name, web_results=None):
     prompt = f"""
     '{industry_name}' 산업(시장)에 대해 아래 항목별로 한국어로 간결하게 요약해줘.{web_context}
 
-    1. 시장 개념 (정의)
-    2. 산업 규모 및 현황(국내)
+    1. 시장 개념
+    2. 국내 산업 규모 및 현황\
     3. Value Chain
-    4. Key Players(주요 기업)
-    5. 산업 이슈(최근 트렌드)
+    4. Key Players
+    5. 산업 이슈
     각 항목별로 소제목과 내용을 구분해서 5줄 이내로 요약해줘.
     """
     try:
@@ -126,6 +128,18 @@ def get_market_summary(industry_name, web_results=None):
     except Exception as e:
         return f"[요약 실패] {e}"
 
+def log_page3_category_search(input_val, output):
+    log_path = "logs/page3_category_search.log"
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\nINPUT: {input_val}\nOUTPUT: {output}\n---\n")
+
+def log_page3_qa(user_input, output):
+    log_path = "logs/page3_qa.log"
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\nINPUT: {user_input}\nOUTPUT: {output}\n---\n")
+
 if search_clicked:
     # 1. 산업명 추정
     industry_name = get_industry_name(company_name, selected_industry)
@@ -133,15 +147,12 @@ if search_clicked:
     # 2. 웹 검색
     with st.spinner("웹 검색 중..."):
         web_results = web_search(f"{industry_name} 산업 시장 동향")
-    if web_results:
-        with st.expander("웹 검색 결과 보기"):
-            for item in web_results:
-                st.markdown(f"- [{item['title']}]({item['link']})<br>{item['snippet']}", unsafe_allow_html=True)
+    render_web_results(web_results)
     # 3. LLM 요약
     with st.spinner("시장 기본 정보 요약 중..."):
         summary = get_market_summary(industry_name, web_results)
     st.session_state["market_summary"] = summary  # Q&A 챗봇에서 사용
-    st.markdown(summary)
-    st.divider()
+    render_market_summary(summary)
+    log_page3_category_search(f"company_name: {company_name}, selected_industry: {selected_industry}", summary)
 else:
     st.info("산업을 선택하거나 기업명을 입력 후 '검색'을 눌러주세요.")
