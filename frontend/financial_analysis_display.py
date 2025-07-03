@@ -19,6 +19,9 @@ else: # Linux or others
 
 plt.rcParams['axes.unicode_minus'] = False # 마이너스 폰트 깨짐 방지
 
+# 매출액 유사 항목 리스트 (전역)
+sales_keywords = ["매출액", "수익", "영업수익", "매출", "총수익"]
+
 def format_amount_to_kr_unit(value):
     if pd.isna(value) or not isinstance(value, (int, float)):
         return 'N/A'
@@ -63,7 +66,8 @@ def generate_income_statement_chart(fs_data, company, year):
     fs_data: DART API에서 받아온 재무제표 dict (list of dict)
     """
     df = pd.DataFrame(fs_data['list'])
-    df_is = df[df['sj_div'] == 'IS']
+    # IS(손익계산서), CIS(포괄손익계산서) 모두 포함
+    df_is = df[df['sj_div'].isin(['IS', 'CIS'])]
 
     def to_float(val):
         try:
@@ -71,7 +75,20 @@ def generate_income_statement_chart(fs_data, company, year):
         except (ValueError, AttributeError):
             return None
 
-    def get_amounts_for_account(df_filtered, account_nm_str):
+    def get_max_amount_for_keywords(df_filtered, keywords, col):
+        max_val = None
+        for kw in keywords:
+            rows = df_filtered[df_filtered['account_nm'].str.contains(kw, na=False)]
+            for val in rows[col]:
+                try:
+                    num = float(str(val).replace(",", ""))
+                    if (max_val is None) or (num > max_val):
+                        max_val = num
+                except Exception:
+                    continue
+        return max_val
+
+    def get_single_account_amounts(df_filtered, account_nm_str):
         row = df_filtered[df_filtered['account_nm'].str.contains(account_nm_str, na=False)]
         if not row.empty:
             return {
@@ -81,9 +98,14 @@ def generate_income_statement_chart(fs_data, company, year):
             }
         return {'thstrm_amount': None, 'frmtrm_amount': None, 'bfefrmtrm_amount': None}
 
-    매출액_data = get_amounts_for_account(df_is, '매출액')
-    영업이익_data = get_amounts_for_account(df_is, '영업이익')
-    당기순이익_data = get_amounts_for_account(df_is, '당기순이익')
+    # 매출액, 영업이익, 당기순이익 데이터 추출
+    매출액_data = {
+        'thstrm_amount': get_max_amount_for_keywords(df_is, sales_keywords, 'thstrm_amount'),
+        'frmtrm_amount': get_max_amount_for_keywords(df_is, sales_keywords, 'frmtrm_amount'),
+        'bfefrmtrm_amount': get_max_amount_for_keywords(df_is, sales_keywords, 'bfefrmtrm_amount')
+    }
+    영업이익_data = get_single_account_amounts(df_is, '영업이익')
+    당기순이익_data = get_single_account_amounts(df_is, '당기순이익')
 
     def to_eok(val):
         try:
@@ -133,37 +155,47 @@ def generate_income_statement_summary(fs_data):
     fs_data: DART API에서 받아온 재무제표 dict (list of dict)
     """
     df = pd.DataFrame(fs_data['list'])
-    df_is = df[df['sj_div'] == 'IS']
+    # IS(손익계산서), CIS(포괄손익계산서) 모두 포함
+    df_is = df[df['sj_div'].isin(['IS', 'CIS'])]
     print("Debug IS account_nm unique values:", df_is['account_nm'].unique()) # Debugging print
     print("Debug IS head (account_nm, thstrm_amount):") # Debugging print
     print(df_is[['account_nm', 'thstrm_amount']].head().to_string()) # Debugging print
 
-    # 매출액 유사 항목 리스트
-    sales_keywords = ["매출액", "수익", "영업수익", "매출"]
+    def get_max_amount_for_keywords(df_filtered, keywords, col):
+        max_val = None
+        for kw in keywords:
+            rows = df_filtered[df_filtered['account_nm'].str.contains(kw, na=False)]
+            for val in rows[col]:
+                try:
+                    num = float(str(val).replace(",", ""))
+                    if (max_val is None) or (num > max_val):
+                        max_val = num
+                except Exception:
+                    continue
+        return max_val
 
-    def get_raw_amount(account_nm_strs, col):
-        # account_nm_strs: 리스트 또는 문자열
-        if isinstance(account_nm_strs, str):
-            account_nm_strs = [account_nm_strs]
-        for nm in account_nm_strs:
-            row = df_is[df_is['account_nm'].str.contains(nm, na=False)]
-            if not row.empty:
-                val = row[col].iloc[0]
-                if val is not None:
-                    try:
-                        return float(str(val).replace(",", ""))
-                    except (ValueError, AttributeError):
-                        continue
+    def get_raw_amount(account_nm_str, col):
+        row = df_is[df_is['account_nm'].str.contains(account_nm_str, na=False)]
+        if not row.empty:
+            val = row[col].iloc[0]
+            try:
+                return float(str(val).replace(",", ""))
+            except (ValueError, AttributeError):
+                return None
         return None
 
-    def get_formatted_amount(account_nm_strs, col):
-        raw_val = get_raw_amount(account_nm_strs, col)
+    def get_formatted_amount_max(account_nm_strs, col):
+        raw_val = get_max_amount_for_keywords(df_is, account_nm_strs, col)
+        return format_amount_to_kr_unit(raw_val)
+
+    def get_formatted_amount(account_nm_str, col):
+        raw_val = get_raw_amount(account_nm_str, col)
         return format_amount_to_kr_unit(raw_val)
 
     # '당기', '전기', '전전기' 데이터를 가져옴 (계산을 위해 raw 값 사용)
-    매출액_당기_raw = get_raw_amount(sales_keywords, 'thstrm_amount')
-    매출액_전기_raw = get_raw_amount(sales_keywords, 'frmtrm_amount')
-    매출액_전전기_raw = get_raw_amount(sales_keywords, 'bfefrmtrm_amount')
+    매출액_당기_raw = get_max_amount_for_keywords(df_is, sales_keywords, 'thstrm_amount')
+    매출액_전기_raw = get_max_amount_for_keywords(df_is, sales_keywords, 'frmtrm_amount')
+    매출액_전전기_raw = get_max_amount_for_keywords(df_is, sales_keywords, 'bfefrmtrm_amount')
 
     영업이익_당기_raw = get_raw_amount("영업이익", 'thstrm_amount')
     영업이익_전기_raw = get_raw_amount("영업이익", 'frmtrm_amount')
@@ -174,9 +206,9 @@ def generate_income_statement_summary(fs_data):
     당기순이익_전전기_raw = get_raw_amount("당기순이익", 'bfefrmtrm_amount')
 
     # 표에 표시할 포맷팅된 값
-    매출액_당기 = get_formatted_amount(sales_keywords, 'thstrm_amount')
-    매출액_전기 = get_formatted_amount(sales_keywords, 'frmtrm_amount')
-    매출액_전전기 = get_formatted_amount(sales_keywords, 'bfefrmtrm_amount')
+    매출액_당기 = format_amount_to_kr_unit(매출액_당기_raw)
+    매출액_전기 = format_amount_to_kr_unit(매출액_전기_raw)
+    매출액_전전기 = format_amount_to_kr_unit(매출액_전전기_raw)
 
     영업이익_당기 = get_formatted_amount("영업이익", 'thstrm_amount')
     영업이익_전기 = get_formatted_amount("영업이익", 'frmtrm_amount')

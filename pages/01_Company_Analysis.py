@@ -134,8 +134,8 @@ render_info_message()
 user_input = st.text_input("AI에게 질문하세요!", key="ai_query_input")
 search_clicked = st.button("검색")
 if search_clicked and user_input:
-    st.session_state['ai_query'] = user_input
-    print(f"[DEBUG] 새로운 입력 저장: {user_input}")
+        st.session_state['ai_query'] = user_input
+        print(f"[DEBUG] 새로운 입력 저장: {user_input}")
 
 # PDF/CSV 업로드 UI를 챗봇 바로 아래로 이동
 uploaded_file = st.file_uploader("자료 업로드 (PDF, CSV)", type=["pdf", "csv"])

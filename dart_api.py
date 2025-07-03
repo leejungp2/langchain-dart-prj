@@ -16,7 +16,7 @@ class DartAPI:
     # 사전 기반 동의어/약칭 매핑
     """
     CORP_NAME_SYNONYMS = {
-    "LG 화학": "LG화학",
+        "LG 화학": "LG화학",
         "삼바": "삼성바이오로직스",
         "현대자동차": "현대차",
         "hyundai": "현대차",
