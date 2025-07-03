@@ -138,23 +138,32 @@ def generate_income_statement_summary(fs_data):
     print("Debug IS head (account_nm, thstrm_amount):") # Debugging print
     print(df_is[['account_nm', 'thstrm_amount']].head().to_string()) # Debugging print
 
-    def get_raw_amount(account_nm_str, col):
-        val = df_is[df_is['account_nm'].str.contains(account_nm_str, na=False)][col].iloc[0] if not df_is[df_is['account_nm'].str.contains(account_nm_str, na=False)].empty else None
-        if val is None:
-            return None
-        try:
-            return float(str(val).replace(",", ""))
-        except (ValueError, AttributeError):
-            return None
+    # 매출액 유사 항목 리스트
+    sales_keywords = ["매출액", "수익", "영업수익", "매출"]
 
-    def get_formatted_amount(account_nm_str, col):
-        raw_val = get_raw_amount(account_nm_str, col)
+    def get_raw_amount(account_nm_strs, col):
+        # account_nm_strs: 리스트 또는 문자열
+        if isinstance(account_nm_strs, str):
+            account_nm_strs = [account_nm_strs]
+        for nm in account_nm_strs:
+            row = df_is[df_is['account_nm'].str.contains(nm, na=False)]
+            if not row.empty:
+                val = row[col].iloc[0]
+                if val is not None:
+                    try:
+                        return float(str(val).replace(",", ""))
+                    except (ValueError, AttributeError):
+                        continue
+        return None
+
+    def get_formatted_amount(account_nm_strs, col):
+        raw_val = get_raw_amount(account_nm_strs, col)
         return format_amount_to_kr_unit(raw_val)
 
     # '당기', '전기', '전전기' 데이터를 가져옴 (계산을 위해 raw 값 사용)
-    매출액_당기_raw = get_raw_amount("매출액", 'thstrm_amount')
-    매출액_전기_raw = get_raw_amount("매출액", 'frmtrm_amount')
-    매출액_전전기_raw = get_raw_amount("매출액", 'bfefrmtrm_amount')
+    매출액_당기_raw = get_raw_amount(sales_keywords, 'thstrm_amount')
+    매출액_전기_raw = get_raw_amount(sales_keywords, 'frmtrm_amount')
+    매출액_전전기_raw = get_raw_amount(sales_keywords, 'bfefrmtrm_amount')
 
     영업이익_당기_raw = get_raw_amount("영업이익", 'thstrm_amount')
     영업이익_전기_raw = get_raw_amount("영업이익", 'frmtrm_amount')
@@ -165,9 +174,9 @@ def generate_income_statement_summary(fs_data):
     당기순이익_전전기_raw = get_raw_amount("당기순이익", 'bfefrmtrm_amount')
 
     # 표에 표시할 포맷팅된 값
-    매출액_당기 = get_formatted_amount("매출액", 'thstrm_amount')
-    매출액_전기 = get_formatted_amount("매출액", 'frmtrm_amount')
-    매출액_전전기 = get_formatted_amount("매출액", 'bfefrmtrm_amount')
+    매출액_당기 = get_formatted_amount(sales_keywords, 'thstrm_amount')
+    매출액_전기 = get_formatted_amount(sales_keywords, 'frmtrm_amount')
+    매출액_전전기 = get_formatted_amount(sales_keywords, 'bfefrmtrm_amount')
 
     영업이익_당기 = get_formatted_amount("영업이익", 'thstrm_amount')
     영업이익_전기 = get_formatted_amount("영업이익", 'frmtrm_amount')
@@ -469,15 +478,29 @@ def pretty_financial_table(fs_data, sj_div='BS'):
     if df.empty:
         return pd.DataFrame([{'계정명': '데이터 없음'}])
     cols = ['account_nm', 'thstrm_amount', 'frmtrm_amount', 'bfefrmtrm_amount']
-    cols = [c for c in cols if c in df.columns]
+    # 구분 컬럼이 있으면 추가
+    if 'fs_div' in df.columns:
+        cols.append('fs_div')
+    elif 'fs_nm' in df.columns:
+        cols.append('fs_nm')
+    elif 'account_id' in df.columns:
+        cols.append('account_id')
     df = df[cols]
     rename_map = {
         'account_nm': '계정명',
         'thstrm_amount': '당기',
         'frmtrm_amount': '전기',
-        'bfefrmtrm_amount': '전전기'
+        'bfefrmtrm_amount': '전전기',
+        'fs_div': '구분',
+        'fs_nm': '구분',
+        'account_id': '구분'
     }
     df = df.rename(columns=rename_map)
+
+    # 계정명+구분 label 생성 (구분 컬럼이 있을 때만)
+    if '구분' in df.columns:
+        df['계정명'] = df['계정명'] + ' (' + df['구분'].astype(str) + ')'
+        df = df.drop(columns=['구분'])
 
     # Re-adding the numeric formatting and index reset
     for col in ['당기', '전기', '전전기']:

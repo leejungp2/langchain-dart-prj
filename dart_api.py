@@ -14,7 +14,6 @@ class DartAPI:
     BASE_URL = "https://opendart.fss.or.kr/api"
     
     # 사전 기반 동의어/약칭 매핑
-    
     """
     CORP_NAME_SYNONYMS = {
     "LG 화학": "LG화학",
@@ -95,6 +94,9 @@ class DartAPI:
             return None
 
     def clean_corp_name(self, name):
+        # 괄호 및 괄호 안 내용 제거
+        name = re.sub(r"\(.*?\)", "", name)
+        # 불필요한 접미사 제거
         suffixes = ["주식회사", "㈜", "Co., Ltd.", "코퍼레이션", "유한회사", "INC", "INC.", "CORP", "CORPORATION", "CO.", "CO", "LIMITED", "COMPANY"]
         for s in suffixes:
             name = name.replace(s, "")
@@ -105,38 +107,42 @@ class DartAPI:
         names = self.corp_code_df['corp_name'].tolist()
         clean_names = [self.clean_corp_name(n) for n in names]
         stock_codes = self.corp_code_df['stock_code'].tolist()
+        corp_code = None
+        candidates = []
+        llm_result = None
         # 1. fuzzywuzzy로 clean된 이름끼리 매칭 (상장사 우선)
         match, score = process.extractOne(clean_input, clean_names)
         if score >= 90:
             idx = clean_names.index(match)
-            # 상장사 우선 반환
             if stock_codes[idx] and str(stock_codes[idx]).strip() != '':
-                return self.corp_code_df.iloc[idx]['corp_code']
-            # 비상장사면, 동일 이름 중 상장사 있는지 추가 탐색
-            for i, cname in enumerate(clean_names):
-                if cname == match and stock_codes[i] and str(stock_codes[i]).strip() != '':
-                    return self.corp_code_df.iloc[i]['corp_code']
-            # 그래도 없으면 기존 방식
-            return self.corp_code_df.iloc[idx]['corp_code']
-        # 2. fuzzy 후보 top-N 추출 (상장사 우선 정렬)
-        matches = process.extract(clean_input, clean_names, limit=10)
-        sorted_matches = sorted(matches, key=lambda m: (not (stock_codes[clean_names.index(m[0])] and str(stock_codes[clean_names.index(m[0])]).strip() != ''), -m[1]))
-        top_matches = sorted_matches[:5]
-        candidates = [names[clean_names.index(m[0])] for m in top_matches]
-        # 3. LLM 매핑 시도
-        llm_result = self.ask_llm_for_corp_name(corp_name, candidates)
-        if llm_result:
-            llm_clean = self.clean_corp_name(llm_result)
-            # 상장사 우선 반환
-            for i, cname in enumerate(clean_names):
-                if cname == llm_clean and stock_codes[i] and str(stock_codes[i]).strip() != '':
-                    return self.corp_code_df.iloc[i]['corp_code']
-            # 그래도 없으면 기존 방식
-            if llm_clean in clean_names:
-                idx = clean_names.index(llm_clean)
-                return self.corp_code_df.iloc[idx]['corp_code']
-        # 4. 그래도 못 찾으면 후보 리스트 반환
-        return candidates
+                corp_code = self.corp_code_df.iloc[idx]['corp_code']
+            else:
+                for i, cname in enumerate(clean_names):
+                    if cname == match and stock_codes[i] and str(stock_codes[i]).strip() != '':
+                        corp_code = self.corp_code_df.iloc[i]['corp_code']
+                        break
+                if not corp_code:
+                    corp_code = self.corp_code_df.iloc[idx]['corp_code']
+        else:
+            matches = process.extract(clean_input, clean_names, limit=10)
+            sorted_matches = sorted(matches, key=lambda m: (not (stock_codes[clean_names.index(m[0])] and str(stock_codes[clean_names.index(m[0])]).strip() != ''), -m[1]))
+            top_matches = sorted_matches[:5]
+            candidates = [names[clean_names.index(m[0])] for m in top_matches]
+            llm_result = self.ask_llm_for_corp_name(corp_name, candidates)
+            if llm_result:
+                llm_clean = self.clean_corp_name(llm_result)
+                for i, cname in enumerate(clean_names):
+                    if cname == llm_clean and stock_codes[i] and str(stock_codes[i]).strip() != '':
+                        corp_code = self.corp_code_df.iloc[i]['corp_code']
+                        break
+                if not corp_code and llm_clean in clean_names:
+                    idx = clean_names.index(llm_clean)
+                    corp_code = self.corp_code_df.iloc[idx]['corp_code']
+        return {
+            "corp_code": corp_code,
+            "candidates": candidates,
+            "llm_result": llm_result
+        }
 
     def get_company_info(self, corp_code):
         """기업 개황 조회"""

@@ -7,6 +7,35 @@ from backend.company_analysis_tools import answer_from_page_context  # 추가
 import datetime
 from frontend.market_analysis_display import render_market_summary, render_web_results
 
+# --- 로그 기록 함수들을 최상단에 위치시킴 ---
+def log_page3_category_search(input_val, output):
+    print("[DEBUG] log_page3_category_search called", input_val, output)
+    log_path = "logs/page3_category_search.log"
+    print("[DEBUG] os.getcwd():", os.getcwd())
+    print("[DEBUG] log_path absolute:", os.path.abspath(log_path))
+    try:
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\nINPUT: {input_val}\nOUTPUT: {output}\n---\n")
+            f.flush()
+            os.fsync(f.fileno())
+    except Exception as e:
+        print(f"[ERROR] log_page3_category_search: {e}")
+
+def log_page3_qa(user_input, output):
+    print("[DEBUG] log_page3_qa called", user_input, output)
+    log_path = "logs/page3_qa.log"
+    print("[DEBUG] os.getcwd():", os.getcwd())
+    print("[DEBUG] log_path absolute:", os.path.abspath(log_path))
+    try:
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\nINPUT: {user_input}\nOUTPUT: {output}\n---\n")
+            f.flush()
+            os.fsync(f.fileno())
+    except Exception as e:
+        print(f"[ERROR] log_page3_qa: {e}")
+
 # 환경변수 로드 및 LLM 세팅
 load_dotenv()
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -26,6 +55,7 @@ if st.sidebar.button("질문하기", key="market_qa_btn"):
     answer = answer_from_page_context(chat_input, page_context)
     if answer:
         st.sidebar.success(f"페이지 내 답변: {answer}")
+        log_page3_qa(chat_input, answer)
     else:
         # 2. 외부 API 호출 (OpenAI)
         llm = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -33,8 +63,10 @@ if st.sidebar.button("질문하기", key="market_qa_btn"):
         try:
             result = llm.invoke(prompt)
             st.sidebar.success(f"외부 답변: {result.content.strip()}")
+            log_page3_qa(chat_input, result.content.strip())
         except Exception as e:
             st.sidebar.error(f"답변 실패: {e}")
+            log_page3_qa(chat_input, f"[ERROR] {e}")
 
 # --- 웹 검색 함수 ---
 def web_search(query, num_results=5):
@@ -127,18 +159,6 @@ def get_market_summary(industry_name, web_results=None):
         return result.content.strip()
     except Exception as e:
         return f"[요약 실패] {e}"
-
-def log_page3_category_search(input_val, output):
-    log_path = "logs/page3_category_search.log"
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\nINPUT: {input_val}\nOUTPUT: {output}\n---\n")
-
-def log_page3_qa(user_input, output):
-    log_path = "logs/page3_qa.log"
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\nINPUT: {user_input}\nOUTPUT: {output}\n---\n")
 
 if search_clicked:
     # 1. 산업명 추정

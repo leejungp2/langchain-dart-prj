@@ -24,33 +24,34 @@ def parse_financial_query(query: str):
         'report_type': report_type
     }
 
+def clean_corp_code(corp_code):
+    corp_code = str(corp_code).strip()
+    corp_code = corp_code.replace("'", "").replace('"', "")
+    corp_code = re.sub(r"^corp_code= ?", "", corp_code)
+    corp_code = corp_code.strip()
+    return corp_code
+
 @tool
-def get_company_info_tool(input: str) -> str:
+def get_company_info_tool(corp_code: str) -> str:
     """
-    기업명을 입력하면 DART API에서 기업 정보를 반환합니다.
-    입력 예시: input='삼성전자'
-    출력 예시: '기업명: 삼성전자, 종목코드: 005930, ...'
+    corp_code(8자리 숫자)를 입력하면 DART API에서 기업 정보를 반환합니다.
+    입력 예시: corp_code='00106641'
+    출력 예시: '기업명: 기아, 종목코드: 000270, ...'
     """
-    def clean(name):
-        return re.sub(r"[\s\(\)\'\"\.,주식회사]", "", name).lower()
-    company_name = input.strip()
+    corp_code = clean_corp_code(corp_code)
+    if not corp_code.isdigit() or len(corp_code) != 8:
+        return f"[ERROR] corp_code(8자리 숫자)만 입력하세요. (입력값: {corp_code})"
     dart = DartAPI()
-    corp_code = dart.find_corp_code(company_name)
-    # corp_code가 6자리 숫자(str)일 때만 DART API 호출
-    if corp_code and isinstance(corp_code, str) and corp_code.isdigit() and 6 <= len(corp_code) <= 8:
-        info = dart.get_company_info(corp_code)
-        if info.get('status') == '000':
-            keys = ["corp_name", "stock_code", "ceo_nm", "corp_cls", "adres"]
-            result = []
-            for k in keys:
-                if k in info:
-                    result.append(f"• {k}: {info[k]}")
-            return '\n'.join(result) if result else str(info)
-        else:
-            return "입력하신 기업명을 찾을 수 없습니다. 한글/영문으로 바꿔서 입력을 다시 시도해 보세요."
+    info = dart.get_company_info(corp_code)
+    if info.get('status') == '000':
+        keys = ["corp_name", "stock_code", "ceo_nm", "corp_cls", "adres"]
+        result = []
+        for k in keys:
+            if k in info:
+                result.append(f"• {k}: {info[k]}")
+        return '\n'.join(result) if result else str(info)
     else:
-        # corp_code가 안내 메시지(문자열)라면 그대로 반환
-        return corp_code if isinstance(corp_code, str) else "입력하신 기업명을 찾을 수 없습니다. 한글/영문으로 바꿔서 입력을 다시 시도해 보세요."
+        return "입력하신 corp_code에 해당하는 기업 정보를 찾을 수 없습니다. corp_code를 다시 확인하세요."
 
 @tool
 def get_financial_statements_tool(input: str) -> str:
@@ -62,7 +63,15 @@ def get_financial_statements_tool(input: str) -> str:
     query = input
     parsed = parse_financial_query(query)
     dart = DartAPI()
-    corp_code = dart.find_corp_code(parsed['corp_name'])
+    corp_code_info = dart.find_corp_code(parsed['corp_name'])
+    corp_code = corp_code_info['corp_code'] if isinstance(corp_code_info, dict) else corp_code_info
+    # 매칭 실패 시 candidates로 재시도
+    if not corp_code and isinstance(corp_code_info, dict):
+        for candidate in corp_code_info.get('candidates', []):
+            retry = dart.find_corp_code(candidate)
+            if isinstance(retry, dict) and retry.get('corp_code'):
+                corp_code = retry['corp_code']
+                break
     if corp_code and isinstance(corp_code, str) and corp_code.isdigit() and 6 <= len(corp_code) <= 8:
         data = dart.get_financial_statements(corp_code, bsns_year=parsed['year'])
         if not data.get('list'):
@@ -74,7 +83,7 @@ def get_financial_statements_tool(input: str) -> str:
                 result.append(f"{item['account_nm']}: {item['thstrm_amount']}")
         return '\n'.join(result) if result else "주요 계정 데이터가 없습니다. (최종 답변)"
     else:
-        return corp_code if isinstance(corp_code, str) else "기업명을 찾을 수 없습니다. (최종 답변)"
+        return "기업명을 찾을 수 없습니다. (최종 답변)"
 
 @tool
 def analyze_csv_tool(input: str) -> str:
