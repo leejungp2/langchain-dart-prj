@@ -6,7 +6,7 @@ This project provides an AI interface for analyzing and asking questions about d
 
 ## 🎥 Demo
 
-[Watch the demo video](./250704%20demo.mov)
+[Watch the demo video on YouTube](https://youtu.be/1YPSAPS8o2U?si=WS2DWuc3br0m2LsL)
 
 ## 📂 Project Structure
 
