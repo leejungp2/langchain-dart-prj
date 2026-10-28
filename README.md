@@ -1,77 +1,77 @@
-# 📘 LangChain-DART 프로젝트
-## 📌 프로젝트 소개
-이 프로젝트는 LangChain을 활용하여 DART 전자공시 시스템의 데이터를 분석하고 질의응답할 수 있는 AI 인터페이스를 제공합니다.  
-사용자는 특정 기업의 공시 데이터를 업로드하거나 조회하고, 자연어로 질문을 입력하여 필요한 정보를 빠르게 얻을 수 있습니다.
+# 📘 LangChain-DART
 
-## 📂 폴더 구성
+## 📌 Project Overview
+
+This project provides an AI interface for analyzing and asking questions about data from Korea's DART electronic disclosure system using LangChain. Users can upload or look up a company's disclosures, ask questions in natural language, and quickly find the information they need.
+
+## 🎥 Demo
+
+[Watch the demo video](./250704%20demo.mov)
+
+## 📂 Project Structure
+
 ```
-├── backend/ # 데이터 처리 및 분석 로직
-│ └── company_analysis_tools.py # 기업 분석 도구 함수 모음
+├── backend/ # Data processing and analysis logic
+│ └── company_analysis_tools.py # Company analysis helper functions
 │
-├── frontend/ # 사용자 인터페이스 (예: Streamlit 등)
-│ └── company_analysis_ui.py # UI 구성 스크립트
+├── frontend/ # User interface (e.g., Streamlit)
+│ └── company_analysis_ui.py # UI implementation
 │
-├── pages/ # 페이지 단위 모듈 (Streamlit 전용)
-│ └── 01_Company_Analysis.py # 기업 분석 페이지
+├── pages/ # Page modules (for Streamlit)
+│ └── 01_Company_Analysis.py # Company analysis page
 │
-├── prompts/ # 프롬프트 설계 및 LLM 설정
-│ └── general.yaml # 프롬프트 및 시스템 설정 파일
+├── prompts/ # Prompt design and LLM configuration
+│ └── general.yaml # Prompt and system configuration
 │
-├── dart_api.py # DART API 연동 함수
-├── corpCode.xml # 기업 고유번호 매핑용 XML 파일
-├── main.py # 앱 실행 엔트리포인트
-├── requirements.txt # 의존성 패키지 목록
-├── .env # API 키 및 환경 변수 설정
-├── .gitignore # Git 추적 제외 파일 목록
-└── README.md # 프로젝트 설명 문서
+├── dart_api.py # DART API integration
+├── corpCode.xml # XML mapping of company identifiers
+├── main.py # Application entry point
+├── requirements.txt # Project dependencies
+├── .env # API keys and environment variables
+├── .gitignore # Files excluded from Git
+└── README.md # Project documentation
 ```
 
-## ⚙️ 환경 설정
+## ⚙️ Setup
+
 ```bash
-# 가상환경 생성 및 활성화
+# Create and activate a virtual environment
 conda create -n langchain-dart python=3.11
 conda activate langchain-dart
 
-# 패키지 설치
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## 🔑 API 키 발급
+## 🔑 API Keys
 
-이 프로젝트는 DART API와 OpenAI API를 사용합니다.  
-다음 절차에 따라 API 키를 발급받고 `.env` 파일에 등록해 주세요.
+This project uses the DART API and OpenAI API. Obtain API keys and add them to a `.env` file.
 
----
+### 1️⃣ DART API Key
 
-### 1️⃣ DART API 키 발급
+1. Visit the [DART Open API](https://opendart.fss.or.kr/).
+2. Sign up and log in.
+3. Go to **My Page → API Application → Issue API Key**.
 
-1. [DART 오픈 API 신청 페이지](https://opendart.fss.or.kr/) 접속  
-2. 회원가입 후 로그인  
-3. **마이페이지 → API 신청 → API Key 발급**
+### 2️⃣ OpenAI API Key
 
----
-
-### 2️⃣ OpenAI API 키 발급
-
-1. [OpenAI 플랫폼](https://platform.openai.com/account/api-keys) 접속  
-2. 로그인 후 **Create new secret key** 클릭  
-3. 생성된 키를 복사하여 `.env` 파일에 다음과 같이 추가:
+1. Visit the [OpenAI Platform](https://platform.openai.com/account/api-keys).
+2. Log in and select **Create new secret key**.
+3. Copy the key and add it to your `.env` file:
 
 ```ini
-# .env 예시
 DART_API_KEY=your_dart_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
----
+### 3️⃣ Serp API Key
 
-### 3. Serp API 키 발급
+Add your Serp API key to the `.env` file if required by your configuration.
 
----
+## 🚀 Run the Application
 
-## 🚀 실행 방법
-
-가상환경이 활성화되고 필요한 패키지가 설치되었다면, 아래 명령어로 앱을 실행할 수 있습니다:
+With the virtual environment active and dependencies installed, run:
 
 ```bash
 streamlit run main.py
+```
